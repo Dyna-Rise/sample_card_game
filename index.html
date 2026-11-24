@@ -1,0 +1,626 @@
+<title>コードカード・ギャラクシー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=JetBrains+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 星空のバトル画面＋手札（左）と、Unityエディタ風の Inspector / Console（右）。下に企画書。 */
+:root{
+  color-scheme: dark;
+  --space:#080b14;      /* 星空＝エディタの黒 */
+  --panel:#10152a;
+  --panel-2:#161c35;
+  --line:#26304f;
+  --fg:#dfe4f5;
+  --muted:#8c95b4;
+  --star:#f3d27a;       /* アクセント：星の金 */
+  --cyan:#6fd3ea;
+  --kw:#c99cf0; --cls:#7fb2ff; --num:#f6a57c; --str:#a8e29a; --com:#6a7495;
+  --ok:#86e2b0; --warn:#f3d27a; --err:#ff7a8a;
+  --f-display:"DotGothic16","Zen Kaku Gothic New",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-code:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--space);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.app{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px;display:grid;gap:28px}
+header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+.logo{font-family:var(--f-display);font-size:clamp(26px,4.5vw,40px);line-height:1.1;letter-spacing:.04em;margin:0;text-wrap:balance}
+.logo .slash{color:var(--com)}
+.logo .gold{color:var(--star)}
+.tagline{margin:6px 0 0;color:var(--muted);font-size:14px}
+.how{font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;max-width:460px}
+.how b{color:var(--fg)}
+
+.game{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:900px){.game{grid-template-columns:minmax(0,1fr)}}
+.left,.right{display:grid;gap:12px;min-width:0}
+
+.status{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-family:var(--f-code);font-size:13px;color:var(--muted)}
+.status b{color:var(--fg);font-weight:600}
+.pips{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px}
+.pip{width:9px;height:12px;border-radius:2px;background:var(--line)}
+.pip.on{background:var(--ok)}
+.field-wrap{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--space)}
+canvas#field{display:block;width:100%}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--space) 78%,transparent);padding:16px;text-align:center}
+.overlay .box{display:grid;gap:10px;max-width:440px}
+.overlay h2{font-family:var(--f-display);font-size:30px;margin:0;color:var(--star);letter-spacing:.06em}
+.overlay p{margin:0;color:var(--fg)}
+
+.hand-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;color:var(--muted)}
+.hand-head b{font-family:var(--f-display);font-weight:400;font-size:16px;color:var(--fg);letter-spacing:.04em}
+.hand-scroll{overflow-x:auto;padding-bottom:4px}
+.hand{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;min-width:0}
+@media (max-width:620px){.hand{grid-template-columns:repeat(5,118px)}}
+.card{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-rows:auto 1fr auto;gap:6px;min-height:132px;padding:10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);transition:transform .15s,border-color .15s,background .15s;position:relative}
+.card:hover{border-color:var(--muted)}
+.card:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.card.sel{transform:translateY(-6px);border-color:var(--star);background:var(--panel-2)}
+.card[disabled]{cursor:default;opacity:.55}
+.c-kind{justify-self:start;font-size:11px;letter-spacing:.08em;padding:1px 7px;border-radius:99px;border:1px solid currentColor}
+.c-code{font-family:var(--f-code);font-size:12px;line-height:1.45;word-break:break-all;color:var(--fg)}
+.c-nick{font-size:13px;font-weight:700}
+.c-weak{position:absolute;top:8px;right:8px;font-size:10px;color:var(--space);background:var(--star);border-radius:3px;padding:0 5px;font-weight:700}
+.k-attack{color:#f6a57c}.k-guard{color:var(--ok)}.k-scan{color:var(--cyan)}.k-jam{color:var(--kw)}.k-buff{color:var(--star)}.k-heal{color:#a8e29a}.k-finish{color:var(--err)}
+
+.detail{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:8px;min-height:150px}
+.detail .empty{color:var(--muted);font-size:14px;margin:auto 0}
+.d-top{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.d-code{font-family:var(--f-code);font-size:15px;word-break:break-all}
+.d-nick{font-weight:700}
+.d-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.d-cols{grid-template-columns:minmax(0,1fr)}}
+.d-cols h4{margin:0;font-size:11px;letter-spacing:.12em;color:var(--muted);font-weight:500}
+.d-cols p{margin:2px 0 0;font-size:14px}
+.btn{all:unset;box-sizing:border-box;cursor:pointer;justify-self:start;font-family:var(--f-display);letter-spacing:.06em;font-size:15px;padding:8px 18px;border-radius:6px;background:var(--star);color:var(--space)}
+.btn:hover{filter:brightness(1.08)}
+.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.btn[disabled]{opacity:.4;cursor:default}
+
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.pane-h{display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.06em;color:var(--muted);padding:6px 12px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+.pane-h span:first-child{color:var(--fg)}
+.insp{padding:8px 12px 10px;font-family:var(--f-code);font-size:12.5px;display:grid;gap:2px}
+.ig{color:var(--fg);font-weight:600;margin-top:6px}
+.ig:first-child{margin-top:0}
+.ic{color:var(--muted);padding-left:12px;margin-top:2px}
+.irow{display:flex;justify-content:space-between;gap:10px;padding-left:24px}
+.ik{color:var(--muted)}
+.iv{color:var(--fg);display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.iv.hidden{color:var(--com)}
+.iv.flash{color:var(--star)}
+.chk{width:13px;height:13px;border:1px solid var(--muted);border-radius:2px;display:inline-grid;place-items:center}
+.chk.on{background:var(--cyan);border-color:var(--cyan)}
+.chk.on::after{content:"";width:6px;height:3px;border-left:2px solid var(--space);border-bottom:2px solid var(--space);transform:rotate(-45deg) translate(1px,-1px)}
+.console{height:230px;overflow-y:auto;padding:6px 0;font-family:var(--f-code);font-size:12px;line-height:1.55}
+.ln{display:grid;grid-template-columns:16px minmax(0,1fr);gap:6px;padding:2px 12px;border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
+.ln .ico{font-weight:600}
+.ln.code .ico{color:var(--cls)}
+.ln.info .ico{color:var(--cyan)}
+.ln.warn .ico,.ln.warn .tx{color:var(--warn)}
+.ln.error .ico,.ln.error .tx{color:var(--err)}
+.ln.sys .tx{color:var(--com)}
+.tx{word-break:break-word}
+.t-com{color:var(--com)}.t-kw{color:var(--kw)}.t-num{color:var(--num)}.t-cls{color:var(--cls)}.t-bool{color:var(--num)}
+
+.gloss{padding:10px 12px;display:grid;gap:8px}
+.case{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:8px 10px}
+.case code{font-family:var(--f-code);color:var(--fg)}
+.terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.term{font-size:12px;padding:6px 8px;border-radius:5px;background:var(--panel-2);min-width:0}
+.term b{font-family:var(--f-code);font-weight:600;display:block;font-size:12px;word-break:break-all}
+.term.locked{color:var(--com)}
+.term.locked b{color:var(--com)}
+.gloss-count{font-family:var(--f-code)}
+
+/* ── 企画書 ── */
+.doc{display:grid;gap:28px;border-top:1px solid var(--line);padding-top:32px}
+.doc h2{font-family:var(--f-display);font-weight:400;font-size:24px;letter-spacing:.04em;margin:0 0 4px;text-wrap:balance}
+.doc h3{font-size:17px;margin:0 0 8px;text-wrap:balance}
+.doc p{margin:0 0 8px;max-width:70ch}
+.doc .lead{font-size:17px;max-width:62ch}
+.doc .lead em{font-style:normal;color:var(--star)}
+.doc section{display:grid;gap:4px;min-width:0}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:500;background:var(--panel)}
+td code,p code,li code{font-family:var(--f-code);font-size:13px;color:var(--cls)}
+td.dim{color:var(--muted)}
+ol.flow{margin:0;padding-left:1.4em;display:grid;gap:4px;max-width:70ch}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.two{grid-template-columns:minmax(0,1fr)}}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.note h3{font-size:15px}
+.note p,.note li{font-size:14px}
+.note ul{margin:0;padding-left:1.2em;display:grid;gap:4px}
+.lessons{display:grid;gap:10px}
+.lesson{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.lesson .no{font-family:var(--f-display);font-size:15px;color:var(--star);letter-spacing:.04em}
+.lesson h3{margin:0;font-size:15px}
+.lesson p{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.lesson p b{color:var(--fg);font-weight:500}
+footer{color:var(--com);font-size:12.5px}
+@media (prefers-reduced-motion: reduce){.card{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1 class="logo"><span class="slash">// </span>コードカード<span class="gold">・</span>ギャラクシー</h1>
+      <p class="tagline">Unityちゃんがコードのカードを実行して、宇宙にわいたバグをデバッグするターン制カードバトル（企画サンプル）</p>
+    </div>
+    <div class="how"><b>あそびかた：</b>手札をタップすると下に説明が出ます。もう一度タップか「実行する」で使用。1ターン1枚。敵のHPは見えないので <b>Debug.Log</b> でのぞこう。</div>
+  </header>
+
+  <div class="game">
+    <div class="left">
+      <div class="status" id="status"></div>
+      <div class="field-wrap" id="fieldWrap">
+        <canvas id="field" aria-label="バトル画面"></canvas>
+        <div class="overlay" id="overlay" hidden>
+          <div class="box">
+            <h2 id="ovTitle"></h2>
+            <p id="ovText"></p>
+            <button class="btn" id="ovBtn" style="justify-self:center"></button>
+          </div>
+        </div>
+      </div>
+      <div class="hand-head"><b>手札</b><span id="deckInfo"></span></div>
+      <div class="hand-scroll"><div class="hand" id="hand"></div></div>
+      <div class="detail" id="detail"></div>
+    </div>
+
+    <div class="right">
+      <div class="pane">
+        <div class="pane-h"><span>Inspector</span><span>値がリアルタイムで変わる</span></div>
+        <div class="insp" id="insp"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-h"><span>Console</span><span>実行したコードが出る</span></div>
+        <div class="console" id="console" aria-live="polite"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-h"><span>用語ずかん</span><span class="gloss-count" id="glossCount"></span></div>
+        <div class="gloss">
+          <div class="case">頭は大文字？小文字？ → <code>Instantiate</code> <code>Destroy</code> <code>Debug</code> のような<b>命令やクラスは大文字</b>、<code>isTrigger</code> <code>hp</code> <code>isStunned</code> のような<b>変数・設定値は小文字</b>から。</div>
+          <div class="terms" id="terms"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────── 企画書 ───────── -->
+  <div class="doc">
+    <section>
+      <h2>企画のまとめ（案）</h2>
+      <p class="lead">Unityちゃんが<em>「カード＝1行のコード」</em>を1ターンに1枚実行して、宇宙にわいた<em>バグ（本物のエラー名を持つ敵）</em>をデバッグする、ターン制カードバトル。遊ぶたびに、Unityの本に出てくる言葉の意味が「効果」として体に入る、自分用の教材ゲームです。</p>
+    </section>
+
+    <section>
+      <h3>企画のことば → このサンプルでの形</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th style="width:30%">企画にあったこと</th><th>サンプルではこうした</th></tr></thead>
+        <tbody>
+          <tr><td>Unityちゃんを操作しながら用語を覚える</td><td>カードを選ぶとUnityちゃんがそのコードを「実行」する。カードには<b>ゲームでの効果</b>と<b>Unityでの本当の意味</b>を並べて表示。</td></tr>
+          <tr><td>5枚の手札を互いのターンで切りあう</td><td>手札5枚・1ターン1枚。敵は「次に何をするか」を予告するので、どのカードで受けるかを考える。</td></tr>
+          <tr><td>Unityちゃんが発する弾</td><td>毎ターン自動で1ダメージの通常弾。<code>Instantiate</code> や <code>for</code> で追加の弾、<code>AddForce</code> で通常弾を強化。</td></tr>
+          <tr><td>相手のHPは通常見えない</td><td>HPは「???」表示。<code>Debug.Log</code> を使うとHPと弱点がConsoleに出て、以後見える。<code>Destroy</code>（HP5以下で一撃）と組み合わせると気持ちいい。</td></tr>
+          <tr><td>「Is Trigger をオン」で弾をすり抜け</td><td>そのまま採用。Inspectorのチェックが実際に入り、弾が体を通り抜ける演出つき。</td></tr>
+          <tr><td>「DamageInfo」で弱点を読む</td><td><code>Debug.Log</code> に置きかえ。DamageInfo はUnityに最初からある言葉ではなく、人が自作する名前なので、本で必ず出会う <code>Debug.Log</code> の方が学びにつながる。</td></tr>
+          <tr><td>「isStunned」で敵を気絶</td><td>採用。ただし「Unityの機能」ではなく<b>自分で作る bool 変数</b>として紹介（これ自体が学びになる）。</td></tr>
+          <tr><td>星空＝プログラミング画面の黒</td><td>星空の背景に、コードエディタ風の色分け。右側はUnityエディタの Inspector / Console を模した画面。</td></tr>
+          <tr><td>ギャラクシアンが参考</td><td>宇宙・虫型の敵・縦向きの画面という<b>雰囲気だけ</b>参考に。操作はシューティングではなくカード選択だけ。</td></tr>
+          <tr><td>セーブ機能なし</td><td>3ステージを続けて遊ぶ。負けたらそのステージの最初から。</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <h3>1ターンの流れ</h3>
+      <ol class="flow">
+        <li>手札が5枚になるまで山札から引く</li>
+        <li>カードを1枚選んで実行（効果が出る／Consoleにコードが出る）</li>
+        <li>Unityちゃんの通常弾（1ダメージ）が自動で飛ぶ</li>
+        <li>敵が予告どおりに行動する（攻撃・ガード・力をためる）</li>
+        <li>Is Trigger や AddForce の効果が切れて、次のターンへ</li>
+      </ol>
+    </section>
+
+    <section>
+      <h3>カード一覧（8種類・山札15枚）</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>カード</th><th>ひとことで</th><th>ゲームでの効果</th><th>Unity / C# での本当の意味</th></tr></thead>
+        <tbody id="cardTable"></tbody>
+      </table></div>
+    </section>
+
+    <section>
+      <h3>敵＝本物のエラー</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>ステージ</th><th>敵</th><th>くせ</th><th>弱点</th><th>本当は何？</th></tr></thead>
+        <tbody id="enemyTable"></tbody>
+      </table></div>
+      <p style="margin-top:8px;color:var(--muted);font-size:14px">本番で赤いエラーを見たときに「あ、ステージ1の敵だ」と思えれば、エラーがこわくなくなる、というねらいです。</p>
+    </section>
+
+    <section>
+      <div class="two">
+        <div class="note">
+          <h3>「頭は小文字？大文字？」への答え</h3>
+          <ul>
+            <li>Unityの画面（Inspector）では <b>Is Trigger</b>（スペースあり・大文字）と表示される</li>
+            <li>コードでは <code>isTrigger</code>（小文字はじまり・つなげて書く）</li>
+            <li>C#の決まり：命令（メソッド）やクラスは大文字 → <code>Instantiate</code> <code>Debug</code>、変数や設定値は小文字 → <code>hp</code> <code>isStunned</code></li>
+            <li>カードにはコードの書き方を使うと、本やコードと同じ見た目で覚えられる</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>覚えるためのしかけ</h3>
+          <ul>
+            <li>カードの解説は「このゲームでは」と「Unityでは」の2本立て</li>
+            <li>使ったカードのコードが Console に1行ずつ流れる</li>
+            <li>Inspector のチェックや数字が、カードの効果で実際に変わる</li>
+            <li>使ったカードが「用語ずかん」に登録される</li>
+            <li>Unity版では <code>isTrigger</code> カードが本当に Collider の Is Trigger を切りかえる（ゲームの効果＝本物の機能）</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h3>全5回の教材にするなら（たたき台）</h3>
+      <div class="lessons">
+        <div class="lesson"><div class="no">第1回</div><div><h3>星空の画面に、Unityちゃんと敵を置く</h3><p><b>覚える言葉：</b>Scene・Hierarchy・Inspector・GameObject　<b>ゴール：</b>再生ボタンで星空の画面が出る</p></div></div>
+        <div class="lesson"><div class="no">第2回</div><div><h3>HPを「変数」で持たせる</h3><p><b>覚える言葉：</b>スクリプト・<code>int</code>・<code>Debug.Log</code>　<b>ゴール：</b>ボタンを押すと敵のHPが減り、Consoleに出る</p></div></div>
+        <div class="lesson"><div class="no">第3回</div><div><h3>カードを5枚並べて、弾を撃つ</h3><p><b>覚える言葉：</b>UI Button・プレハブ・<code>Instantiate</code>・<code>Destroy</code>　<b>ゴール：</b>カードを押すと弾が飛んでダメージ</p></div></div>
+        <div class="lesson"><div class="no">第4回</div><div><h3>敵のターンと、すり抜け・気絶</h3><p><b>覚える言葉：</b>Collider・<code>isTrigger</code>・<code>bool</code>・<code>if</code>　<b>ゴール：</b>交代でターンが進み、isTrigger で本当に弾がすり抜ける</p></div></div>
+        <div class="lesson"><div class="no">第5回</div><div><h3>山札・ステージ・クリア画面で仕上げ</h3><p><b>覚える言葉：</b><code>List</code>・ランダム・シーン切りかえ・ビルド　<b>ゴール：</b>ポートフォリオとして人に遊んでもらえる形に</p></div></div>
+      </div>
+      <p style="margin-top:8px;color:var(--muted);font-size:14px">1週間で第3回まで動けば、ポートフォリオの「核」としては十分です。第4回以降は終了後の作り込みに回せます。</p>
+    </section>
+
+    <footer>このページはブラウザで動く企画確認用のサンプルです。Unityちゃんの絵は仮の図形で、Unity版では公式素材（ユニティちゃんライセンス）に差し替えます。</footer>
+  </div>
+</div>
+
+<script>
+(()=>{
+const CARDS={
+  inst:{code:'Instantiate(bullet);',name:'Instantiate',nick:'弾をつくる',kind:'attack',effect:'弾を1発つくって撃つ。3ダメージ。',unity:'プレハブ（オブジェクトの設計図）から、ゲーム中に新しいコピーを作る命令。弾・敵・エフェクトを出すときの定番。',run:'// 弾のプレハブから1発つくった'},
+  loop:{code:'for (int i = 0; i < 3; i++)',name:'for',nick:'3回くりかえす',kind:'attack',effect:'1ダメージの弾を3回撃つ。敵のガードは1発ぶんしか防げない。',unity:'同じ処理を決まった回数くり返す書き方。i が 0→1→2 と増えて、3 になったら止まる。',run:'// 中の処理を3回くり返す'},
+  trig:{code:'collider.isTrigger = true;',name:'isTrigger',nick:'すりぬける',kind:'guard',effect:'このターン、敵の弾がUnityちゃんをすり抜ける（ダメージ0）。',unity:'Collider（当たり判定）の「Is Trigger」にチェックを入れると、ぶつからずに通り抜け、「触れた」ことだけを知らせるセンサーになる。触れると OnTriggerEnter が呼ばれる。',run:'// 当たり判定をセンサーに切りかえ'},
+  log:{code:'Debug.Log(enemy.hp);',name:'Debug.Log',nick:'中身をのぞく',kind:'scan',effect:'敵のHPと弱点がConsoleに表示され、このステージ中ずっと見える。',unity:'Consoleウィンドウに値を書き出す命令。「この変数、今いくつ？」を確かめる、いちばんよく使う道具。',run:''},
+  stun:{code:'enemy.isStunned = true;',name:'isStunned',nick:'気絶スイッチON',kind:'jam',effect:'敵が予告している行動を1回止める。',unity:'Unityに最初からある言葉ではなく、自分で作る bool型（true か false だけが入る）の変数。「〜している？」を表す変数には is を付けるのがC#の習慣。',run:'// 敵のスイッチを true に'},
+  force:{code:'rb.AddForce(Vector3.up * 4);',name:'AddForce',nick:'力をくわえる',kind:'buff',effect:'このターンの通常弾が強くなる（1→4ダメージ）。',unity:'Rigidbody（物理で動くための部品）に力を加えて押し出す命令。ジャンプや弾の発射に使う。',run:'// 通常弾に力をくわえる'},
+  heal:{code:'hp += 3;',name:'+=',nick:'HPをふやす',kind:'heal',effect:'UnityちゃんのHPを3回復する（最大10）。',unity:'変数に数を足して入れ直す書き方。hp = hp + 3; を短くしたもの。',run:'// hp に 3 を足す'},
+  dest:{code:'Destroy(enemy);',name:'Destroy',nick:'消し去る',kind:'finish',effect:'敵のHPが5以下なら一撃で倒す。6以上だと失敗する。',unity:'オブジェクトをシーンから消す命令。倒した敵や、画面の外に出た弾を片付けるのに使う。',run:''},
+};
+const ORDER=['inst','loop','trig','log','stun','force','heal','dest'];
+const KIND={attack:'攻撃',guard:'防御',scan:'調査',jam:'妨害',buff:'強化',heal:'回復',finish:'必殺'};
+const DECK=['inst','inst','inst','loop','loop','trig','trig','log','log','stun','stun','force','force','heal','dest'];
+const STAGES=[
+  {name:'NullReferenceException',jp:'ぬるぽ虫',hp:14,weak:'inst',color:'#ff9b6a',quirk:'素直に殴ってくる。3ターン目に力をためる',pattern:[{t:'atk',v:2},{t:'atk',v:2},{t:'charge'},{t:'atk',v:5}],desc:'「中身が空（null）のもの」を使おうとすると出る、Unityでいちばんよく見るエラー。'},
+  {name:'MissingComponentException',jp:'部品ぬけ虫',hp:18,weak:'loop',color:'#c99cf0',quirk:'ガードで攻撃を1回防ぐ',pattern:[{t:'guard'},{t:'atk',v:3},{t:'charge'},{t:'atk',v:6}],desc:'必要なコンポーネント（部品）が付いていないときに出るエラー。'},
+  {name:'InfiniteLoop',jp:'むげんループ虫',hp:24,weak:'force',color:'#ff7a8a',quirk:'連続攻撃とガードを使い分ける',pattern:[{t:'multi',v:2,n:2},{t:'guard'},{t:'charge'},{t:'atk',v:7},{t:'multi',v:1,n:3}],desc:'終わらないくり返し。エラーは出ずにUnityが固まる、こわいバグ。'},
+];
+const BUG=["..X.....X..","...X...X...","..XXXXXXX..",".XX.XXX.XX.","XXXXXXXXXXX",".XXXX.XXXX.","X.XXX.XXX.X","..XX...XX..","X.........X"];
+const C={gold:'#f3d27a',cyan:'#6fd3ea',ok:'#86e2b0',err:'#ff7a8a',fg:'#dfe4f5',muted:'#8c95b4',line:'#26304f',space:'#080b14',panel:'#10152a'};
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,RM?ms*0.4:ms));
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+function hl(code){
+  const parts=code.split(/(\/\/.*$|\b(?:true|false|for|if|return|int|bool|void)\b|\b\d+\b|\b[A-Z][A-Za-z0-9]*\b)/);
+  return parts.map((p,i)=>{
+    if(i%2===0) return esc(p);
+    if(p.startsWith('//')) return `<span class="t-com">${esc(p)}</span>`;
+    if(/^(true|false)$/.test(p)) return `<span class="t-bool">${p}</span>`;
+    if(/^(for|if|return|int|bool|void)$/.test(p)) return `<span class="t-kw">${p}</span>`;
+    if(/^\d+$/.test(p)) return `<span class="t-num">${p}</span>`;
+    return `<span class="t-cls">${p}</span>`;
+  }).join('');
+}
+
+let S=null; const seen=new Set();
+
+/* ── Console ── */
+const con=$('#console');
+function log(text,type='sys'){
+  const d=document.createElement('div'); d.className='ln '+type;
+  const ico={code:'›',info:'i',warn:'!',error:'×',sys:' '}[type]||' ';
+  d.innerHTML=`<span class="ico">${ico}</span><span class="tx">${type==='code'?hl(text):esc(text)}</span>`;
+  con.appendChild(d); while(con.children.length>90) con.firstChild.remove();
+  con.scrollTop=con.scrollHeight;
+}
+
+/* ── ゲーム進行 ── */
+function drawCards(){
+  while(S.hand.length<5){
+    if(!S.deck.length){ if(!S.discard.length) break; S.deck=shuffle(S.discard); S.discard=[]; log('// 山札が空 → 捨て札をシャッフルして戻した'); }
+    S.hand.push(S.deck.pop());
+  }
+}
+function startStage(i){
+  const st=STAGES[i];
+  S={stage:i,php:10,pmax:10,ehp:st.hp,emax:st.hp,revealed:false,trigger:false,force:false,stunned:false,guard:0,pi:0,deck:shuffle([...DECK]),discard:[],hand:[],sel:-1,busy:false,over:false,turn:1};
+  drawCards(); $('#overlay').hidden=true;
+  log(`// ── STAGE ${i+1}: ${st.name} があらわれた ──`,'warn');
+  log('// '+st.desc);
+  if(i===0) log('// 敵のHPは見えない。Debug.Log で中身をのぞけるよ');
+  render();
+}
+const cur=()=>{const st=STAGES[S.stage];return st.pattern[S.pi%st.pattern.length]};
+function intentText(a){
+  if(S.stunned) return 'isStunned → 行動不能';
+  switch(a.t){case 'atk':return `次：攻撃 ${a.v}`;case 'multi':return `次：攻撃 ${a.v}×${a.n}回`;case 'charge':return '次：力をためる…';case 'guard':return '次：ガードを張る';}
+}
+
+async function play(idx){
+  if(!S||S.busy||S.over) return;
+  const id=S.hand[idx]; if(!id) return;
+  S.busy=true; S.hand.splice(idx,1); S.discard.push(id); S.sel=-1; seen.add(id);
+  const c=CARDS[id], st=STAGES[S.stage];
+  log(c.code+(c.run?'  '+c.run:''),'code');
+  render();
+  switch(id){
+    case 'inst': await playerAttack([3],id); break;
+    case 'loop': await playerAttack([1,1,1],id); break;
+    case 'trig': S.trigger=true; pop(pPos().x+34,pPos().y-50,'Is Trigger ✓',C.ok); break;
+    case 'log':
+      S.revealed=true;
+      log(`${S.ehp}   ← enemy.hp（最大 ${S.emax}）`,'info');
+      log(`// 弱点は ${CARDS[st.weak].name}！ 弱点カードはダメージ2倍`,'info');
+      pop(ePos().x,ePos().y+46,'HP '+S.ehp,C.cyan); break;
+    case 'stun': S.stunned=true; pop(ePos().x,ePos().y-40,'isStunned = true',C.gold); break;
+    case 'force': S.force=true; pop(pPos().x+34,pPos().y-50,'AddForce!',C.gold); break;
+    case 'heal': { const before=S.php; S.php=Math.min(S.pmax,S.php+3); pop(pPos().x+34,pPos().y-50,'+'+(S.php-before),C.ok); log(`${S.php}   ← hp`,'info'); break; }
+    case 'dest':
+      if(S.ehp<=5){
+        await shoot(muzzle(),ePos,C.gold,520,9);
+        S.ehp=0; eFlash=performance.now()+260; pop(ePos().x,ePos().y,'Destroy!',C.gold);
+        log('// 敵オブジェクトをシーンから削除した','info');
+      } else {
+        log(`MissingReferenceException?  // 失敗：敵のHPが5より多いので消せない${S.revealed?'（今 '+S.ehp+'）':'。Debug.Log で確かめてから使おう'}`,'error');
+        pop(ePos().x,ePos().y+46,'失敗…',C.err);
+      }
+      break;
+  }
+  render();
+  if(S.ehp<=0) return win();
+  await sleep(320);
+  log(S.force?'// Unityちゃんの通常弾（AddForceで強化：4ダメージ）':'// Unityちゃんの通常弾');
+  await playerAttack([S.force?4:1],S.force?'force':'shot');
+  if(S.ehp<=0) return win();
+  await enemyTurn();
+  if(S.trigger) log('collider.isTrigger = false;  // ターン終了で元にもどる','code');
+  S.trigger=false; S.force=false;
+  render();
+  if(S.php<=0) return lose();
+  drawCards(); S.turn++; S.busy=false; render();
+}
+
+async function playerAttack(hits,src){
+  const st=STAGES[S.stage]; const weak=src===st.weak; const jobs=[];
+  for(let i=0;i<hits.length;i++){
+    if(S.ehp<=0) break;
+    const dmg=hits[i]*(weak?2:1); const m=muzzle();
+    if(hits.length>1) m.x+=(i-1)*12;
+    const color=src==='force'?C.gold:src==='shot'?C.fg:C.cyan;
+    jobs.push(shoot(m,ePos,color,430,src==='force'?7:4).then(()=>hitEnemy(dmg,weak)));
+    if(hits.length>1) await sleep(150);
+  }
+  await Promise.all(jobs);
+}
+function hitEnemy(dmg,weak){
+  if(S.ehp<=0) return;
+  const e=ePos();
+  if(S.guard>0){ S.guard--; pop(e.x,e.y+40,'GUARD',C.cyan); log('// 敵のガードに防がれた','warn'); render(); return; }
+  S.ehp=Math.max(0,S.ehp-dmg); eFlash=performance.now()+120;
+  pop(e.x+(Math.random()*30-15),e.y-10,'-'+dmg+(weak?' 弱点!':''),weak?C.gold:C.fg);
+  render();
+}
+async function enemyTurn(){
+  const a=cur(); await sleep(380);
+  const e=ePos();
+  if(S.stunned){
+    S.stunned=false;
+    log('if (enemy.isStunned) return;  // 気絶中なので行動をスキップ','code');
+    pop(e.x,e.y-40,'STUN',C.gold);
+  } else switch(a.t){
+    case 'atk': log(`// 敵の攻撃：${a.v}ダメージ`,'warn'); await enemyAttack(a.v,1); break;
+    case 'multi': log(`// 敵の連続攻撃：${a.v}ダメージ × ${a.n}回`,'warn'); await enemyAttack(a.v,a.n); break;
+    case 'charge': log('// 敵は力をためている…次は強攻撃！ isTrigger か isStunned で備えよう','warn'); pop(e.x,e.y-40,'CHARGE',C.err); break;
+    case 'guard': S.guard=1; log('// 敵がガードを張った（次の攻撃を1回防ぐ）','warn'); pop(e.x,e.y+40,'GUARD',C.cyan); break;
+  }
+  S.pi++; await sleep(200);
+}
+async function enemyAttack(v,n){
+  for(let i=0;i<n;i++){
+    const e=ePos();
+    await shoot({x:e.x,y:e.y+24},()=>{const p=pPos();return{x:p.x,y:p.y-18}},C.err,540,5);
+    const p=pPos();
+    if(S.trigger){
+      pop(p.x+36,p.y-46,'すりぬけ!',C.ok);
+      shoot({x:p.x,y:p.y-18},()=>({x:p.x,y:H+30}),C.err,320,5);
+      if(i===0) log('OnTriggerEnter();  // 触れたけど、ぶつからない → ダメージ0','info');
+    } else {
+      S.php=Math.max(0,S.php-v); pFlash=performance.now()+160; pShake=performance.now()+260;
+      pop(p.x+36,p.y-46,'-'+v,C.err); render();
+    }
+    if(S.php<=0) break;
+    await sleep(170);
+  }
+}
+function win(){
+  S.over=true; S.busy=false; render();
+  const st=STAGES[S.stage], last=S.stage===STAGES.length-1;
+  log(`// ✔ ${st.name} を修正した！（${S.turn}ターン）`,'info');
+  setTimeout(()=>showOverlay(last?'ALL BUGS FIXED':'STAGE CLEAR',
+    last?'3体のバグをぜんぶデバッグした！ 用語ずかんで、使った言葉をふり返ってみよう。':`${st.name}（${st.jp}）をデバッグした！`,
+    last?'最初からあそぶ':'次のステージへ',()=>startStage(last?0:S.stage+1)),650);
+}
+function lose(){
+  S.over=true; S.busy=false; render();
+  log('// Unityちゃんがクラッシュした…','error');
+  setTimeout(()=>showOverlay('GAME OVER','でもバグは直せる。「力をためる」の次は強攻撃。isTrigger か isStunned で受け流そう。','このステージをやり直す',()=>startStage(S.stage)),650);
+}
+function showOverlay(t,txt,btn,fn){
+  $('#ovTitle').textContent=t; $('#ovText').textContent=txt; const b=$('#ovBtn'); b.textContent=btn; b.onclick=fn;
+  $('#overlay').hidden=false; b.focus({preventScroll:true});
+}
+
+/* ── 画面描画（DOM） ── */
+function render(){
+  const st=STAGES[S.stage];
+  const pips=Array.from({length:S.pmax},(_,i)=>`<span class="pip ${i<S.php?'on':''}"></span>`).join('');
+  $('#status').innerHTML=`<span>STAGE <b>${S.stage+1}/3</b></span><span>TURN <b>${S.turn}</b></span><span>Unityちゃん HP <b>${S.php}</b>/${S.pmax}<span class="pips">${pips}</span></span><span>敵 HP <b>${S.revealed?S.ehp+'/'+S.emax:'???'}</b></span>`;
+  $('#deckInfo').textContent=`山札 ${S.deck.length}・捨て札 ${S.discard.length}`;
+  const dis=S.busy||S.over;
+  $('#hand').innerHTML=S.hand.map((id,i)=>{const c=CARDS[id];
+    return `<button class="card ${i===S.sel?'sel':''}" data-i="${i}" ${dis?'disabled':''} aria-pressed="${i===S.sel}" aria-label="${esc(c.nick)}：${esc(c.code)}">
+      <span class="c-kind k-${c.kind}">${KIND[c.kind]}</span><code class="c-code">${hl(c.code)}</code><span class="c-nick">${c.nick}</span>
+      ${S.revealed&&id===st.weak?'<span class="c-weak">弱点</span>':''}</button>`}).join('');
+  const d=$('#detail');
+  if(S.sel<0||!S.hand[S.sel]){
+    d.innerHTML=`<p class="empty">${dis?'実行中…':'カードをタップすると、ここに「ゲームでの効果」と「Unityでの意味」が出ます。キーボードなら 1〜5 で選んで Enter。'}</p>`;
+  } else {
+    const c=CARDS[S.hand[S.sel]];
+    d.innerHTML=`<div class="d-top"><span class="c-kind k-${c.kind}">${KIND[c.kind]}</span><code class="d-code">${hl(c.code)}</code><span class="d-nick">${c.nick}</span></div>
+      <div class="d-cols"><div><h4>このゲームでは</h4><p>${esc(c.effect)}</p></div><div><h4>UNITY では</h4><p>${esc(c.unity)}</p></div></div>
+      <button class="btn" id="playBtn">このカードを実行する ▶</button>`;
+    $('#playBtn').onclick=()=>play(S.sel);
+  }
+  const ck=on=>`<span class="chk ${on?'on':''}"></span>${on}`;
+  $('#insp').innerHTML=`
+    <div class="ig">▼ UnityChan</div>
+    <div class="irow"><span class="ik">hp</span><span class="iv">${S.php} / ${S.pmax}</span></div>
+    <div class="ic">▼ Capsule Collider</div>
+    <div class="irow"><span class="ik">Is Trigger</span><span class="iv ${S.trigger?'flash':''}">${ck(S.trigger)}</span></div>
+    <div class="ic">▼ Rigidbody</div>
+    <div class="irow"><span class="ik">AddForce</span><span class="iv ${S.force?'flash':''}">${S.force?'up × 4':'0'}</span></div>
+    <div class="ig">▼ Enemy : ${st.name}</div>
+    <div class="irow"><span class="ik">hp</span><span class="iv ${S.revealed?'':'hidden'}">${S.revealed?S.ehp+' / '+S.emax:'??? (Debug.Logで表示)'}</span></div>
+    <div class="irow"><span class="ik">isStunned</span><span class="iv ${S.stunned?'flash':''}">${ck(S.stunned)}</span></div>
+    <div class="irow"><span class="ik">guard</span><span class="iv">${S.guard}</span></div>
+    <div class="irow"><span class="ik">weakness</span><span class="iv ${S.revealed?'':'hidden'}">${S.revealed?CARDS[st.weak].name:'???'}</span></div>`;
+  $('#terms').innerHTML=ORDER.map(id=>{const c=CARDS[id];return seen.has(id)
+    ?`<div class="term"><b>${esc(c.name)}</b>${c.nick}</div>`
+    :`<div class="term locked"><b>？？？</b>まだ使っていない</div>`}).join('');
+  $('#glossCount').textContent=`${seen.size} / ${ORDER.length}`;
+}
+$('#hand').addEventListener('click',e=>{
+  const b=e.target.closest('.card'); if(!b||b.disabled) return;
+  const i=+b.dataset.i;
+  if(S.sel===i) play(i); else { S.sel=i; render(); const nb=$(`.card[data-i="${i}"]`); nb&&nb.focus({preventScroll:true}); }
+});
+document.addEventListener('keydown',e=>{
+  if(!S||S.busy||S.over) return;
+  if(e.target.closest&&e.target.closest('input,textarea')) return;
+  if(/^[1-5]$/.test(e.key)){ const i=+e.key-1; if(S.hand[i]){S.sel=i;render();} }
+  else if(e.key==='Enter'&&S.sel>=0&&!e.target.closest('.btn,.card')){ play(S.sel); }
+});
+
+/* ── キャンバス（星空バトル） ── */
+const cv=$('#field'), ctx=cv.getContext('2d');
+let W=0,H=0,now=0,last=0,eFlash=0,pFlash=0,pShake=0;
+const shots=[],floats=[],stars=[];
+function resize(){
+  const w=Math.round(cv.parentElement.clientWidth); if(!w||w===W) return;
+  W=w; H=Math.round(Math.min(Math.max(W*0.6,300),430));
+  const dpr=window.devicePixelRatio||1; cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(!stars.length) for(let i=0;i<110;i++) stars.push({x:Math.random(),y:Math.random(),z:Math.random()*0.8+0.2});
+}
+new ResizeObserver(resize).observe($('#fieldWrap')); resize();
+const ePos=()=>({x:W/2+Math.sin(now/1100)*W*0.16,y:H*0.24});
+const pPos=()=>({x:W/2,y:H*0.82});
+const muzzle=()=>{const p=pPos();return{x:p.x,y:p.y-40}};
+function shoot(from,to,color,dur,r){return new Promise(res=>shots.push({from:{...from},to,color,r,dur:RM?dur*0.5:dur,t0:performance.now(),res}))}
+function pop(x,y,text,color){floats.push({x,y,text,color,t0:performance.now()})}
+function rrect(x,y,w,h,r){ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h)}
+
+function drawEnemy(){
+  const st=STAGES[S.stage], {x,y}=ePos();
+  const cell=Math.max(4,Math.min(7,W/95))*(S.stage===2?1.2:1);
+  const w=BUG[0].length*cell, h=BUG.length*cell;
+  ctx.save();
+  if(S.ehp<=0) ctx.globalAlpha=0.18;
+  ctx.fillStyle=now<eFlash?'#ffffff':st.color;
+  const wob=S.stunned?Math.sin(now/60)*1.5:0;
+  BUG.forEach((row,ry)=>[...row].forEach((ch,rx)=>{ if(ch==='X') ctx.fillRect(x-w/2+rx*cell+wob,y-h/2+ry*cell,cell-1,cell-1)}));
+  ctx.restore();
+  if(S.ehp<=0) return;
+  if(S.guard>0){ ctx.strokeStyle=C.cyan; ctx.lineWidth=3; ctx.globalAlpha=0.6+Math.sin(now/200)*0.3; ctx.beginPath(); ctx.arc(x,y,w*0.78,0.12*Math.PI,0.88*Math.PI); ctx.stroke(); ctx.globalAlpha=1; }
+  if(S.stunned){ ctx.fillStyle=C.gold; for(let k=0;k<3;k++){const a=now/400+k*2.1; ctx.fillRect(x+Math.cos(a)*w*0.55-2,y-h*0.7+Math.sin(a)*6-2,4,4);} }
+  // HP表示
+  ctx.font='12px "JetBrains Mono", monospace'; ctx.textAlign='center'; ctx.textBaseline='top';
+  if(S.revealed){
+    const bw=Math.min(120,W*0.3), bx=x-bw/2, by=y+h/2+10;
+    ctx.fillStyle=C.line; ctx.fillRect(bx,by,bw,5); ctx.fillStyle=st.color; ctx.fillRect(bx,by,bw*S.ehp/S.emax,5);
+    ctx.fillStyle=C.muted; ctx.fillText(`hp ${S.ehp}/${S.emax}`,x,by+9);
+  } else { ctx.fillStyle=C.muted; ctx.fillText('hp ???',x,y+h/2+10); }
+  // 行動予告
+  if(!S.over){
+    const t=intentText(cur()); ctx.font='12px "Zen Kaku Gothic New", sans-serif';
+    const tw=ctx.measureText(t).width+18; let bx=x+w/2+12; if(bx+tw>W-8) bx=x-w/2-12-tw; if(bx<8) bx=8;
+    const by=y-h/2-4; const danger=!S.stunned&&cur().t!=='guard';
+    rrect(bx,by,tw,24,5); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=danger?C.err:C.cyan; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=danger?C.err:C.cyan; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(t,bx+9,by+12.5);
+  }
+}
+function drawPlayer(){
+  let {x,y}=pPos(); if(now<pShake) x+=Math.sin(now/18)*4;
+  ctx.save(); ctx.translate(x,y); ctx.globalAlpha=S.trigger?0.45:1;
+  const hit=now<pFlash;
+  if(S.force){ ctx.fillStyle='rgba(243,210,122,.18)'; ctx.beginPath(); ctx.arc(0,-18,34+Math.sin(now/120)*3,0,Math.PI*2); ctx.fill(); }
+  ctx.fillStyle=hit?'#fff':'#e8b86a'; // 髪・ツインテール（仮の図形）
+  ctx.beginPath(); ctx.ellipse(-17,-22,6,15,0.35,0,Math.PI*2); ctx.ellipse(17,-22,6,15,-0.35,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=hit?'#fff':'#6fd3ea'; // 服
+  ctx.beginPath(); ctx.moveTo(-9,-14); ctx.lineTo(9,-14); ctx.lineTo(15,10); ctx.lineTo(-15,10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=hit?'#fff':'#ffe0c8'; ctx.beginPath(); ctx.arc(0,-26,10,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=hit?'#fff':'#e8b86a'; ctx.beginPath(); ctx.arc(0,-28,10.5,Math.PI*1.02,Math.PI*1.98); ctx.fill();
+  ctx.restore();
+  // コライダー（Sceneビューの緑の線）
+  ctx.save(); ctx.strokeStyle=C.ok; ctx.lineWidth=1.2; ctx.globalAlpha=0.8; ctx.setLineDash(S.trigger?[4,4]:[]);
+  ctx.beginPath(); ctx.ellipse(x,y-12,22,30,0,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  ctx.font='11px "JetBrains Mono", monospace'; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=S.trigger?C.ok:C.muted;
+  ctx.fillText(S.trigger?'Is Trigger: ON':'Collider',x,y+22);
+}
+function frame(t){
+  const dt=Math.min(50,t-(last||t)); last=t; now=t;
+  if(W&&S){
+    ctx.fillStyle=C.space; ctx.fillRect(0,0,W,H);
+    for(const s of stars){ if(!RM) s.y+=s.z*dt*0.00004; if(s.y>1) {s.y=0;s.x=Math.random();}
+      ctx.globalAlpha=0.25+s.z*0.6; ctx.fillStyle=s.z>0.85?C.gold:'#cfd6f0'; const r=s.z>0.85?1.6:1; ctx.fillRect(s.x*W,s.y*H,r,r); }
+    ctx.globalAlpha=1;
+    drawEnemy(); drawPlayer();
+    for(let i=shots.length-1;i>=0;i--){
+      const s=shots[i], p=Math.min(1,(t-s.t0)/s.dur), to=s.to();
+      const X=s.from.x+(to.x-s.from.x)*p, Y=s.from.y+(to.y-s.from.y)*p;
+      const q=Math.max(0,p-0.1), X2=s.from.x+(to.x-s.from.x)*q, Y2=s.from.y+(to.y-s.from.y)*q;
+      ctx.strokeStyle=s.color; ctx.globalAlpha=0.35; ctx.lineWidth=s.r; ctx.beginPath(); ctx.moveTo(X2,Y2); ctx.lineTo(X,Y); ctx.stroke(); ctx.globalAlpha=1;
+      ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(X,Y,s.r,0,Math.PI*2); ctx.fill();
+      if(p>=1){ shots.splice(i,1); s.res(); }
+    }
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let i=floats.length-1;i>=0;i--){
+      const f=floats[i], a=(t-f.t0)/1000; if(a>1){floats.splice(i,1);continue;}
+      ctx.globalAlpha=1-a; ctx.fillStyle=f.color; ctx.font='16px "DotGothic16", sans-serif'; ctx.fillText(f.text,f.x,f.y-a*28);
+    }
+    ctx.globalAlpha=1;
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ── 企画書の表 ── */
+$('#cardTable').innerHTML=ORDER.map(id=>{const c=CARDS[id];const n=DECK.filter(x=>x===id).length;
+  return `<tr><td><code>${esc(c.code)}</code><div class="dim" style="font-size:12px">${KIND[c.kind]}・${n}枚</div></td><td>${c.nick}</td><td>${esc(c.effect)}</td><td class="dim">${esc(c.unity)}</td></tr>`}).join('');
+$('#enemyTable').innerHTML=STAGES.map((s,i)=>`<tr><td>${i+1}</td><td><code>${s.name}</code><div class="dim" style="font-size:12px">${s.jp}・HP ${s.hp}</div></td><td>${s.quirk}</td><td><code>${CARDS[s.weak].name}</code></td><td class="dim">${s.desc}</td></tr>`).join('');
+
+startStage(0);
+requestAnimationFrame(frame);
+})();
+</script>
