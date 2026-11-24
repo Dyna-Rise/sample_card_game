@@ -1,5 +1,9 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>コードカード・ギャラクシー</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=JetBrains+Mono:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
@@ -22,6 +26,8 @@
   --f-code:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
 }
 *{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
 body{background:var(--space);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.7}
 .app{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px;display:grid;gap:28px}
 header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
@@ -145,7 +151,8 @@ ol.flow{margin:0;padding-left:1.4em;display:grid;gap:4px;max-width:70ch}
 footer{color:var(--com);font-size:12.5px}
 @media (prefers-reduced-motion: reduce){.card{transition:none}}
 </style>
-
+</head>
+<body>
 <div class="app">
   <header class="top">
     <div>
@@ -624,3 +631,5 @@ startStage(0);
 requestAnimationFrame(frame);
 })();
 </script>
+</body>
+</html>
